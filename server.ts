@@ -1,3 +1,4 @@
+import dotenv from 'dotenv';
 import express, { NextFunction, Request, Response } from 'express';
 import { createWriteStream, PathLike } from 'fs';
 import { mkdir, readFile, writeFile } from 'fs/promises';
@@ -10,7 +11,6 @@ import {
   SMTPServerDataStream,
   SMTPServerSession
 } from 'smtp-server';
-import dotenv from "dotenv";
 
 dotenv.config();
 
@@ -66,7 +66,7 @@ const onRcptTo = (
   return callback(new Error('No thank you'));
 };
 
-const onData = (
+const onData = async (
   stream: SMTPServerDataStream,
   session: SMTPServerSession,
   callback: () => void
@@ -77,28 +77,29 @@ const onData = (
     sanitizeOptions
   )}/`;
 
-  createRecipientDirectory(recipientFolderPath)
-    .then(() => {
-      return handleMessageStream(recipientFolderPath, session.id, stream);
-    })
-    .then((transactionSummary: TransactionSummary) => {
-      if (transactionSummary.error) {
-        console.log(
-          `Failed to parse email #${session.id}: ${transactionSummary.error}`
-        );
-      } else if (transactionSummary.writeErr) {
-        console.log(
-          `Failed to save email #${session.id}: ${transactionSummary.writeErr}`
-        );
-      } else {
-        console.log(
-          `Email #${session.id} parsed and saved successfully. Updating weekly index...`
-        );
-        return updateOrCreateWeeklyMessageIndex(transactionSummary);
-      }
-    })
-    .then(() => console.log(`Done with #${session.id}`));
+  await createRecipientDirectory(recipientFolderPath);
+  const transactionSummary = await handleMessageStream(
+    recipientFolderPath,
+    session.id,
+    stream
+  );
 
+  if (transactionSummary.error) {
+    console.log(
+      `Failed to parse email #${session.id}: ${transactionSummary.error}`
+    );
+  } else if (transactionSummary.writeErr) {
+    console.log(
+      `Failed to save email #${session.id}: ${transactionSummary.writeErr}`
+    );
+  } else {
+    console.log(
+      `Email #${session.id} parsed and saved successfully. Updating weekly index...`
+    );
+    await updateOrCreateWeeklyMessageIndex(transactionSummary);
+  }
+
+  console.log(`Done with #${session.id}`);
   stream.on('end', callback);
 };
 
