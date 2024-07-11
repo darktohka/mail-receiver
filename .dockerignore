@@ -1,0 +1,9 @@
+node_modules
+.git
+.github
+.gitignore
+.dockerignore
+.prettierrc.json
+Dockerfile
+eslint.config.mjs
+README.md
